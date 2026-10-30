@@ -1,0 +1,47 @@
+{
+  "log": { "loglevel": "warning" },
+  "inbounds": [
+    {
+      "tag": "tun-in",
+      "protocol": "tun",
+      "settings": { "name": "xray0", "mtu": 1500 },
+      "sniffing": { "enabled": true, "destOverride": ["http", "tls", "quic"], "routeOnly": true }
+    }
+  ],
+  "outbounds": [
+    {
+      "tag": "vless443",
+      "protocol": "vless",
+      "settings": { "vnext": [ { "address": "VPS_IP", "port": 443,
+        "users": [ { "id": "UUID", "encryption": "none", "flow": "xtls-rprx-vision" } ] } ] },
+      "streamSettings": { "network": "tcp", "security": "reality",
+        "realitySettings": { "serverName": "SNI", "fingerprint": "firefox", "publicKey": "PBK", "shortId": "SID443", "spiderX": "/" } }
+    },
+    {
+      "tag": "vless2443",
+      "protocol": "vless",
+      "settings": { "vnext": [ { "address": "VPS_IP", "port": 2443,
+        "users": [ { "id": "UUID", "encryption": "none" } ] } ] },
+      "streamSettings": { "network": "xhttp", "security": "reality",
+        "xhttpSettings": { "path": "/XHTTP_PATH", "mode": "auto" },
+        "realitySettings": { "serverName": "SNI", "fingerprint": "firefox", "publicKey": "PBK", "shortId": "SID2443", "spiderX": "/" } }
+    },
+    { "tag": "block", "protocol": "blackhole" }
+  ],
+  "observatory": {
+    "subjectSelector": ["vless443", "vless2443"],
+    "probeUrl": "https://www.gstatic.com/generate_204",
+    "probeInterval": "30s",
+    "enableConcurrency": true
+  },
+  "routing": {
+    "domainStrategy": "AsIs",
+    "balancers": [
+      { "tag": "auto", "selector": ["vless443"], "fallbackTag": "vless2443", "strategy": { "type": "leastPing" } }
+    ],
+    "rules": [
+      { "type": "field", "ip": ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16", "224.0.0.0/4", "255.255.255.255/32"], "outboundTag": "block" },
+      { "type": "field", "inboundTag": ["tun-in"], "balancerTag": "auto" }
+    ]
+  }
+}
